@@ -19,14 +19,17 @@ from PIL import Image
 # 標準ライブラリ
 import random
 import copy
+import math
 
 # 自作パッケージ
-# from gafunc import display_table 
-# from gafunc import display_individual 
+from gafunc import display_table 
+from gafunc import display_individual 
 from gafunc import generate_0th_generation 
 from gafunc import add_unit_switch 
 from gafunc import evaluation_individual 
 from gafunc import generate_n_generation 
+from gafunc import uniform_crossover_individuals
+from gafunc import generate_next_generation
 
 
 sns.set()
@@ -36,22 +39,6 @@ japanize_matplotlib.japanize()  # 日本語フォントの設定
 # https://boul.tech/mplsns-ja/
 
 
-def display_table(title, df: pd.DataFrame):
-    st.subheader(title)
-    st.table(df)
-
-
-def display_individual(title, df: pd.DataFrame, score_list: list):
-
-    # データフレームを表示
-    st.subheader(title)
-    st.text(f'生産不足：{score_list[0]} + 生産過多：{score_list[1]} + CO2排出量：{score_list[2]} = 合計：{score_list[0] + score_list[1] + score_list[2]} 点')
-    st.table(df)
-
-    # Streamlitでdataframeを表示させる | ITブログ
-    # https://kajiblo.com/streamlit-dataframe/
-
-    
 def main():
     """ メインモジュール
     """
@@ -210,14 +197,25 @@ def main():
 
     if choice == '最適化の実行':
 
+        # ペナルティの重み設定
+        incomplete_loss = st.sidebar.number_input('生産不足のペナルティ（重み）', value=200)
+        complete_loss = st.sidebar.number_input('生産過多のペナルティ（重み）', value=20)
+        co2_loss = st.sidebar.number_input('ＣＯ２排出量のペナルティ（重み）', value=50)
+        change_loss = st.sidebar.number_input('交換作業のペナルティ（重み）', value=100)
+
+        max_individual = st.sidebar.slider('世代の個体数', value=25, min_value=25, max_value=250, step=1)
+        max_generation = st.sidebar.slider('生成する世代数(n)', value=1, min_value=1, max_value=100, step=1)
+
+        choice_crossover = st.sidebar.selectbox("交叉の種類", ['一点交叉', '一様交叉'])
+        mutation_rate = st.sidebar.number_input('突然変異の割合', value=1, min_value=1, max_value=100, step=1)
+
+        # choice_graph = st.sidebar.selectbox("評価値の遷移グラフ", ['表示しない','表示する'])
+
+
         # # アップロードの有無を確認
         # if uploaded_file is not None:
         # セッションステートにデータフレームがあるかを確認
         if 'df_norma' in st.session_state or 'df_norma' not in st.session_state:
-
-            # 表示する世代
-            max_individual = st.sidebar.slider('世代の個体数', value=5, min_value=5, max_value=100, step=1)
-            # choice_graph = st.sidebar.selectbox("評価値の遷移グラフ", ['表示しない','表示する'])
 
             # データフレームの読み込み（一番左端の列をインデックスに設定） ※デバック用
             df_norma = pd.read_csv('製造指示.csv', encoding="utf_8_sig", index_col=0) 
@@ -240,66 +238,57 @@ def main():
 
                     # 第0世代の生成（引数：稼働率）
                     df_shift_0th = generate_0th_generation(st.session_state.operating_rate)
-                    display_individual('第0世代(個体:' + str(i) + '番)', df_shift_0th, [0, 0, 0])
+                    display_individual('第0世代(個体:' + str(i) + '番)', df_shift_0th, [0, 0, 0, 0, 0])
                     df_shift = copy.deepcopy(df_shift_0th)
                     df_shift_list.append(df_shift)    # リストに格納
 
                 # 世代の全個体リストをセッションステートに保存
                 st.session_state.df_shift_list = df_shift_list
 
-            # ペナルティの重み設定
-            incomplete_loss = st.sidebar.number_input('生産不足のペナルティ（重み）', value=200)
-            complete_loss = st.sidebar.number_input('生産過多のペナルティ（重み）', value=20)
-            co2_loss = st.sidebar.number_input('ＣＯ２排出量のペナルティ（重み）', value=50)
-            max_generation = st.sidebar.slider('生成する世代数(n)', value=1, min_value=1, max_value=100, step=1)
 
-            if st.sidebar.button(f'～第{max_generation}世代までを生成する'):
+            if st.sidebar.button(f'次の世代を生成する'):
                 
-                # 第n-1世代が存在する場合...
+                # 第0世代が存在する場合...
                 if 'df_shift_list' in st.session_state:
 
                     # セッションステートから世代の全個体リストを復元
                     df_shift_list = st.session_state.df_shift_list
 
-                    # リストから個体を1つずつ取り出し
-                    for idx, df_shift in enumerate(df_shift_list):
+                    # ペナルティの重みをリスト化する
+                    loss_list = [incomplete_loss, complete_loss, co2_loss, change_loss]
 
-                        temp_shift_list = []     # 交換(9)を挿入した行を3行まとめるためのリスト
+                    # 全世代のベストスコアを格納しておくリストを初期化
+                    best_score_lists = []
 
-                        # 個体から1行ずつ取り出し（マシンＡ, Ｂ, Ｃ）
-                        for index, row in df_shift.iterrows():
-                            temp_shift = add_unit_switch(row)     # 部品の交換をチェックして、2hの交換(9)を挿入する
-                            temp_shift_list.append(temp_shift)
+                    # 次世代の個体群を生成
+                    df_shift_next_list, best_score_list = generate_next_generation(df_shift_list, loss_list, mutation_rate, choice_crossover)
 
-                        # 個体評価用のデータフレームを作成
-                        df_shift_evaluation = pd.DataFrame(temp_shift_list,  index=['マシンＡ', 'マシンＢ', 'マシンＣ'])
+                    # 現世代のベストスコアをリストに追加
+                    best_score_lists.append(best_score_list)
 
-                        # 個体を評価する
-                        df_norma = st.session_state.df_norma                # 製造指示（ノルマ）を読み込み
-                        cap_params_list = st.session_state.cap_params_list  # 部品製造能力を読み込み
-                        co2_params_list = st.session_state.co2_params_list  # ＣＯ２排出量を読み込み
+                    # 次世代の個体は少し多めに交叉しているので、個数をここで調整
+                    df_shift_next_list = df_shift_next_list[:max_individual]
 
-                        # 生産ノルマを守れているかの評価 ＆ ＣＯ２排出量を評価
-                        loss_list = [incomplete_loss, complete_loss, co2_loss]    # ペナルティの重みをリスト化する
-                        score_list = evaluation_individual(df_shift_evaluation, df_norma, cap_params_list, co2_params_list, loss_list)
+                    print(best_score_lists)
 
-                        incomplete_score = score_list[0]    # 生産不足のペナルティスコア
-                        complete_score = score_list[1]      # 生産過多のペナルティスコア
-                        co2_score = score_list[2]           # CO2排出量のペナルティスコア
-                        total_score = score_list[0] + score_list[1] + score_list[2]     # 合計スコア
+                    # print('len(df_shift_next_list)')
+                    # print(len(df_shift_next_list))
 
-                        print('score_list')
-                        print(score_list)
-
-                        # 第n世代の表示
-                        display_individual('第n世代(個体:' + str(idx) + '番)', df_shift, score_list)
-                        display_individual('第n世代(個体:' + str(idx) + '番)', df_shift_evaluation, score_list)
-
-                        # いったんここまで。次は評価の高い個体を残すアルゴリズムを選出。ベストも。
+                    # for df in df_shift_next_list:
+                    #     display_table('次世代デバッグ', df)
 
 
-                # 世代の全個体リストをセッションステートに保存
-                st.session_state.df_shift_list = df_shift_list    
+
+
+                # # 世代の全個体リストをセッションステートに保存
+                # st.session_state.df_shift_list = df_shift_list
+
+            # if st.sidebar.button(f'高評価の個体を選出する'):
+
+            #     # 現世代の個体を格納するリストを初期化
+            #     df_shift_list = []
+
+            st.sidebar.caption('Built by [Nail Team]')
                                 
         else:
             st.subheader('製造指示データをアップロードしてください')
