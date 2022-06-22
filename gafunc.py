@@ -38,7 +38,29 @@ def display_individual(title, df: pd.DataFrame, score_list: list):
     # Streamlitでdataframeを表示させる | ITブログ
     # https://kajiblo.com/streamlit-dataframe/
 
-    
+
+# 時間ごとの製造指示（ノルマ）を、0時台からの累積台数に変換する関数
+def transform_norma(df_norma: pd.DataFrame):
+
+    # 戻り値用にデータフレームをディープコピー
+    df_new_norma = copy.deepcopy(df_norma)
+
+    # データフレームのインデックスを振り直し（0～）
+    df_norma = df_norma.reset_index(drop=True)
+
+    # 製造指示から1行ずつ取り出し（部品α, β, γ）
+    for parts_no, row in df_norma.iterrows():
+
+        # 1行（部品）から時間帯ごとの状態（ステータス）を取り出し
+        for hour, norma in enumerate(row):
+
+            if norma != 0:
+                for i in range(hour + 1, 24):
+                    df_new_norma.iloc[parts_no, i] = df_new_norma.iloc[parts_no, i] + df_norma.iloc[parts_no, hour]
+
+    return df_new_norma
+
+
 def generate_0th_generation(operating_rate : int):
 
     # 全てゼロのデータフレームを作成
@@ -222,36 +244,19 @@ def single_crossover_individuals(df1: pd.DataFrame, df2: pd.DataFrame, mutation_
     # 交叉する箇所をランダムで決定
     rnd = random.randint(1, 70)
 
-    print('rnd')
-    print(rnd)
-
+    # 交叉箇所を抜き取り結合
     list1 = list1[:rnd]
-    print('list1')
-    print(list1)
-    print(len(list1))
-
     list2 = list2[rnd:]
-    print('list2')
-    print(list2)
-    print(len(list2))
+    list1.extend(list2)
+    new_list = list1
 
+    # 1次元リストを2次元リストに変換
+    new_list_2d = [new_list[i:i + 24] for i in range(0, len(new_list), 24)]
 
-    # # 一様交叉のループ
-    # for idx in range(len(list1)):
+    # 2次元リストをデータフレームに変換
+    df_new = pd.DataFrame(new_list_2d, index=df1.index, columns=df1.columns)
 
-    #     rnd = random.randint(1, 2)
-    #     if rnd == 1:
-    #         new_list.append(list1[idx])
-    #     else:
-    #         new_list.append(list2[idx])
-
-    # # 1次元リストを2次元リストに変換
-    # new_list_2d = [new_list[i:i + 24] for i in range(0, len(new_list), 24)]
-
-    # # 2次元リストをデータフレームに変換
-    # df_new = pd.DataFrame(new_list_2d, index=df1.index, columns=df1.columns)
-
-    df_new = df1
+    print(df_new)
 
     return df_new
 
@@ -262,6 +267,9 @@ def generate_next_generation(df_shift_list : list, loss_list: list, mutation_rat
     # 全個体のスコアを格納しておくデータフレームを生成
     df_score = pd.DataFrame(columns=['生産不足', '生産過多', 'CO2排出量', '交換作業', '合計スコア'])
     score_lists = []    # df_scoreに代入するための作業用のリスト
+
+    # 評価用の個体を格納しておくリスト
+    df_shift_evaluation_list = []
 
     # リストから個体を1つずつ取り出し
     for idx, df_shift in enumerate(df_shift_list):
@@ -275,6 +283,7 @@ def generate_next_generation(df_shift_list : list, loss_list: list, mutation_rat
 
         # 個体評価用のデータフレームを作成
         df_shift_evaluation = pd.DataFrame(temp_shift_list,  index=['マシンＡ', 'マシンＢ', 'マシンＣ'])
+        df_shift_evaluation_list.append(df_shift_evaluation)
 
         # 個体を評価する
         df_norma = st.session_state.df_norma                # 製造指示（ノルマ）を読み込み
@@ -302,6 +311,7 @@ def generate_next_generation(df_shift_list : list, loss_list: list, mutation_rat
 
     # 合計スコアの降順に並び替え
     df_score_sort = df_score_sort.sort_values('合計スコア', ascending=False)
+    display_table('スコア一覧表（ベスト10）', df_score_sort.head(10))
 
     # 全個体の遺伝子を（一時的に）格納しておくリスト
     # df_shift_new_list = []
@@ -311,19 +321,19 @@ def generate_next_generation(df_shift_list : list, loss_list: list, mutation_rat
 
     # 合計スコアの降順に個体（遺伝子）を格納するループ
     df_shift_sort_list = []
+    df_shift_evaluation_sort_list = []
     for idx in idx_list:
         # リストに個体（遺伝子）を格納
         df_shift_sort_list.append(df_shift_list[idx])
+        df_shift_evaluation_sort_list.append(df_shift_evaluation_list[idx])    
 
     # 個体数の平方根を求めて整数に丸める（エリートの個体数を算出）
     elite_count = round(math.sqrt(len(df_shift_sort_list))) + 1
     df_shift_sort_list = df_shift_sort_list[:elite_count]
     
-    # デバッグ用
-    for idx, df in enumerate(df_shift_sort_list):
-        display_individual('エリート個体（遺伝子）', df, df_score_sort.iloc[idx, :].values.tolist())
-
-    display_table('スコア一覧表', df_score_sort)
+    # # デバッグ用
+    # for idx, df in enumerate(df_shift_sort_list):
+    #     display_individual('エリート個体（遺伝子）', df, df_score_sort.iloc[idx, :].values.tolist())
 
     # 世代の最優秀個体は、遺伝子組換えをせずに次世代に残す
     df_shift_next_list = []
@@ -331,6 +341,8 @@ def generate_next_generation(df_shift_list : list, loss_list: list, mutation_rat
 
     # 世代の最優秀スコアを記録する（戻り値用）
     best_score_list = df_score_sort.iloc[0, :].values.tolist()
+    display_individual('第n世代 最優秀個体', df_shift_next_list[0], best_score_list)
+    display_individual('第n世代 最優秀個体', df_shift_evaluation_sort_list[0], best_score_list)
 
     i = 1
     for idx1, df1 in enumerate(df_shift_sort_list):
