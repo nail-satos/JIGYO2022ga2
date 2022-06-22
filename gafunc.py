@@ -171,7 +171,7 @@ def evaluation_individual(df_shift: pd.DataFrame, df_norma: pd.DataFrame, cap_pa
             if status == -1:
                 status_idx = 2  # 整備時
             if status == 0:
-                status_idx = 3  # 休止時
+                status_idx = 3  # 遊休時
 
             # CO2排出量を加算
             df_co2.iloc[machine_no, hour] = df_co2.iloc[machine_no, hour] + co2_params_list[machine_no][status_idx]
@@ -352,6 +352,7 @@ def generate_next_generation(n: int, df_shift_list : list, loss_list: list, muta
     # 世代の最優秀スコアを記録する（戻り値用）
     best_score_list = df_score_sort.iloc[0, :].values.tolist()
     display_individual('第' + str(n) + '世代 最優秀個体', df_shift_next_list[0], best_score_list)
+
 
     # 評価用個体の表示（交換の9を取り除いた純粋な遺伝子のみ）
     # display_individual('第' + str(n) + '世代 最優秀個体', df_shift_evaluation_sort_list[0], best_score_list)

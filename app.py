@@ -211,80 +211,77 @@ def main():
 
         choice_crossover = st.sidebar.selectbox("交叉の種類", ['一様交叉', '一点交叉'])
 
-        # choice_graph = st.sidebar.selectbox("評価値の遷移グラフ", ['表示しない','表示する'])
-
-
         # # アップロードの有無を確認
         # if uploaded_file is not None:
         # セッションステートにデータフレームがあるかを確認
         if 'df_norma' in st.session_state or 'df_norma' not in st.session_state:
 
-            # データフレームの読み込み（一番左端の列をインデックスに設定） ※デバック用
+            # 仮データフレームの読み込み（一番左端の列をインデックスに設定） ※デバック用
             df_norma = pd.read_csv('生産計画.csv', encoding="utf_8_sig", index_col=0) 
 
             # データフレームをセッションステートに退避  ※デバック用
             st.session_state.df_norma = copy.deepcopy(df_norma)
 
-            # テーブルの表示
-            display_table('生産計画（指示書）', df_norma)
 
-            # 時間ごとの生産計画（ノルマ）を、0時台からの累積台数に変換する関数
-            df_norma = transform_norma(df_norma)
+        # テーブルの表示
+        display_table('生産計画（指示書）', df_norma)
 
-            # テーブルの表示
-            display_table('生産計画（累積数）', df_norma)
+        # 時間ごとの生産計画（ノルマ）を、0時台からの累積台数に変換する関数
+        df_norma = transform_norma(df_norma)
 
-            # st.header('稼働状況データ')
-            # st.text('遊休=0, 製造=1(部品α),2(部品β),3(部品γ), 交換=9, 整備=-1')            
+        # テーブルの表示
+        display_table('生産計画（累積数）', df_norma)
 
-            # 全世代の個体を格納するリストを初期化
-            df_shift_list = []
+        # 全世代の個体を格納するリストを初期化
+        df_shift_list = []
 
-            if st.sidebar.button('アルゴリズム実行'):
+        if st.sidebar.button('アルゴリズム実行'):
 
-                for i in range(max_individual):
+            for i in range(max_individual):
 
-                    # 第0世代の生成（引数：稼働率）
-                    df_shift_0th = generate_0th_generation(st.session_state.operating_rate)
-                    # display_individual('第0世代(個体:' + str(i) + '番)', df_shift_0th, [0, 0, 0, 0, 0])
-                    df_shift = copy.deepcopy(df_shift_0th)
-                    df_shift_list.append(df_shift)    # リストに格納
+                # 第0世代の生成（引数：稼働率）
+                df_shift_0th = generate_0th_generation(st.session_state.operating_rate)
+                # display_individual('第0世代(個体:' + str(i) + '番)', df_shift_0th, [0, 0, 0, 0, 0])
+                df_shift = copy.deepcopy(df_shift_0th)
+                df_shift_list.append(df_shift)    # リストに格納
 
 
-                # ペナルティの重みをリスト化する
-                loss_list = [incomplete_loss, complete_loss, co2_loss, change_loss]
+            # ペナルティの重みをリスト化する
+            loss_list = [incomplete_loss, complete_loss, co2_loss, change_loss]
 
-                # 全世代のベストスコアを格納しておくリストを初期化
-                best_score_lists = []
+            # 全世代のベストスコアを格納しておくリストを初期化
+            best_score_lists = []
 
-                # 指定された世代分を繰り返すループ
-                for n in range(1, max_generation + 1):
+            # 指定された世代分を繰り返すループ
+            for n in range(1, max_generation + 1):
 
-                    # 次世代の個体群を生成
-                    df_shift_next_list, best_score_list = generate_next_generation(n, df_shift_list, loss_list, mutation_rate, choice_crossover)
+                # 次世代の個体群を生成
+                df_shift_next_list, best_score_list = generate_next_generation(n, df_shift_list, loss_list, mutation_rate, choice_crossover)
 
-                    # 現世代のベストスコアをリストに追加
-                    best_score_lists.append(best_score_list)
+                # 現世代のベストスコアをリストに追加
+                best_score_lists.append(best_score_list)
 
-                    # 次世代の個体は少し多めに交叉しているので、個数をここで調整
-                    df_shift_next_list = df_shift_next_list[:max_individual]
+                # 次世代の個体は少し多めに交叉しているので、個数をここで調整
+                df_shift_next_list = df_shift_next_list[:max_individual]
 
-                    # 次世代を現世代にコピーして次のループへ
-                    df_shift_list = copy.deepcopy(df_shift_next_list)
+                # 次世代を現世代にコピーして次のループへ
+                df_shift_list = copy.deepcopy(df_shift_next_list)
 
-                # 処理終了のバルーンを表示
-                st.balloons()
+            # 処理終了のバルーンを表示
+            st.balloons()
 
-                # 棒グラフを出力用のデータフレームを作成
-                df_best_score = pd.DataFrame(best_score_lists, columns=['生産不足', '生産過多', 'CO2排出量', '交換作業', '合計スコア'])
+            st.text('遊休=0, 製造(部品α)=1, 製造(部品β)=2, 製造(部品γ)=3, 交換作業=9')            
 
-                # スコアの線グラフを出力
-                st.line_chart(df_best_score)
+            # 棒グラフを出力用のデータフレームを作成
+            df_best_score = pd.DataFrame(best_score_lists, columns=['生産不足', '生産過多', 'CO2排出量', '交換作業', '合計スコア'])
 
-            st.sidebar.caption('Built by [Nail Team]')  # 下マージン用
+            # スコアの線グラフを出力
+            st.line_chart(df_best_score)
+
+        st.sidebar.caption('Built by [Nail Team]')  # 下マージン用
                                 
-        else:
-            st.subheader('生産計画データをアップロードしてください')
+        # else:
+        #     st.subheader('生産計画データをアップロードしてください')
 
 
     if choice == 'About':
@@ -293,7 +290,7 @@ def main():
         st.image(image)
 
         st.markdown("Built by [Nail Team]")
-        st.text("Version 0.2")
+        st.text("Version 1.0")
         st.markdown("For More Information check out   (https://nai-lab.com/)")
         
 
