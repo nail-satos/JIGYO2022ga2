@@ -232,7 +232,7 @@ def main():
             df_norma = transform_norma(df_norma)
 
             # テーブルの表示
-            display_table('生産計画（累積台数）', df_norma)
+            display_table('生産計画（累積数）', df_norma)
 
             # st.header('稼働状況データ')
             # st.text('遊休=0, 製造=1(部品α),2(部品β),3(部品γ), 交換=9, 整備=-1')            
@@ -250,17 +250,6 @@ def main():
                     df_shift = copy.deepcopy(df_shift_0th)
                     df_shift_list.append(df_shift)    # リストに格納
 
-                # # 世代の全個体リストをセッションステートに保存
-                # st.session_state.df_shift_list = df_shift_list
-
-
-            # if st.sidebar.button(f'次の世代を生成する'):
-                
-                # # 第0世代が存在する場合...
-                # if 'df_shift_list' in st.session_state:
-
-                #     # セッションステートから世代の全個体リストを復元
-                #     df_shift_list = st.session_state.df_shift_list
 
                 # ペナルティの重みをリスト化する
                 loss_list = [incomplete_loss, complete_loss, co2_loss, change_loss]
@@ -268,35 +257,31 @@ def main():
                 # 全世代のベストスコアを格納しておくリストを初期化
                 best_score_lists = []
 
-                # 次世代の個体群を生成
-                df_shift_next_list, best_score_list = generate_next_generation(df_shift_list, loss_list, mutation_rate, choice_crossover)
+                # 指定された世代分を繰り返すループ
+                for n in range(1, max_generation + 1):
 
-                # 現世代のベストスコアをリストに追加
-                best_score_lists.append(best_score_list)
+                    # 次世代の個体群を生成
+                    df_shift_next_list, best_score_list = generate_next_generation(n, df_shift_list, loss_list, mutation_rate, choice_crossover)
 
-                # 次世代の個体は少し多めに交叉しているので、個数をここで調整
-                df_shift_next_list = df_shift_next_list[:max_individual]
+                    # 現世代のベストスコアをリストに追加
+                    best_score_lists.append(best_score_list)
 
-                print(best_score_lists)
+                    # 次世代の個体は少し多めに交叉しているので、個数をここで調整
+                    df_shift_next_list = df_shift_next_list[:max_individual]
 
-                    # print('len(df_shift_next_list)')
-                    # print(len(df_shift_next_list))
+                    # 次世代を現世代にコピーして次のループへ
+                    df_shift_list = copy.deepcopy(df_shift_next_list)
 
-                    # for df in df_shift_next_list:
-                    #     display_table('次世代デバッグ', df)
+                # 処理終了のバルーンを表示
+                st.balloons()
 
+                # 棒グラフを出力用のデータフレームを作成
+                df_best_score = pd.DataFrame(best_score_lists, columns=['生産不足', '生産過多', 'CO2排出量', '交換作業', '合計スコア'])
 
+                # スコアの線グラフを出力
+                st.line_chart(df_best_score)
 
-
-                # # 世代の全個体リストをセッションステートに保存
-                # st.session_state.df_shift_list = df_shift_list
-
-            # if st.sidebar.button(f'高評価の個体を選出する'):
-
-            #     # 現世代の個体を格納するリストを初期化
-            #     df_shift_list = []
-
-            st.sidebar.caption('Built by [Nail Team]')
+            st.sidebar.caption('Built by [Nail Team]')  # 下マージン用
                                 
         else:
             st.subheader('生産計画データをアップロードしてください')

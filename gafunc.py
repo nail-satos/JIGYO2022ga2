@@ -261,7 +261,7 @@ def single_crossover_individuals(df1: pd.DataFrame, df2: pd.DataFrame, mutation_
 
 
 # 引数（全個体のシフト, 各種ペナルティのリスト, 突然変異の割合）
-def generate_next_generation(df_shift_list : list, loss_list: list, mutation_rate: int, choice_crossover: str):
+def generate_next_generation(n: int, df_shift_list : list, loss_list: list, mutation_rate: int, choice_crossover: str):
 
     # 全個体のスコアを格納しておくデータフレームを生成
     df_score = pd.DataFrame(columns=['生産不足', '生産過多', 'CO2排出量', '交換作業', '合計スコア'])
@@ -310,7 +310,7 @@ def generate_next_generation(df_shift_list : list, loss_list: list, mutation_rat
 
     # 合計スコアの降順に並び替え
     df_score_sort = df_score_sort.sort_values('合計スコア', ascending=False)
-    display_table('スコア一覧表（ベスト10）', df_score_sort.head(10))
+    display_table('第' + str(n) + '世代 スコア一覧表（ベスト10）', df_score_sort.head(10))
 
     # 全個体の遺伝子を（一時的に）格納しておくリスト
     # df_shift_new_list = []
@@ -340,8 +340,8 @@ def generate_next_generation(df_shift_list : list, loss_list: list, mutation_rat
 
     # 世代の最優秀スコアを記録する（戻り値用）
     best_score_list = df_score_sort.iloc[0, :].values.tolist()
-    display_individual('第n世代 最優秀個体', df_shift_next_list[0], best_score_list)
-    display_individual('第n世代 最優秀個体', df_shift_evaluation_sort_list[0], best_score_list)
+    display_individual('第' + str(n) + '世代 最優秀個体', df_shift_next_list[0], best_score_list)
+    display_individual('第' + str(n) + '世代 最優秀個体', df_shift_evaluation_sort_list[0], best_score_list)
 
     i = 1
     for idx1, df1 in enumerate(df_shift_sort_list):
