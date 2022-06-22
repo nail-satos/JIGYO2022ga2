@@ -108,7 +108,8 @@ def generate_0th_generation(operating_rate : int):
 def add_unit_switch(sr: pd.Series):
 
     new_shift = []
-    unit_prev = sr.values.tolist()[0]   # 最初の部品を記録
+    # unit_prev = sr.values.tolist()[0]   # 最初の部品を記録
+    unit_prev = -999    # 番兵をセット
 
     for unit in sr.values.tolist():
         if unit == unit_prev or unit == 0:
@@ -255,8 +256,6 @@ def single_crossover_individuals(df1: pd.DataFrame, df2: pd.DataFrame, mutation_
 
     # 2次元リストをデータフレームに変換
     df_new = pd.DataFrame(new_list_2d, index=df1.index, columns=df1.columns)
-
-    print(df_new)
 
     return df_new
 
