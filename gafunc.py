@@ -349,11 +349,11 @@ def generate_next_generation(n: int, df_shift_list : list, loss_list: list, muta
 
     # 世代の最優秀スコアを記録する（戻り値用）
     best_score_list = df_score_sort.iloc[0, :].values.tolist()
-    display_individual('第' + str(n) + '世代 最優秀個体', df_shift_next_list[0], best_score_list)
+    # display_individual('第' + str(n) + '世代 最優秀個体', df_shift_next_list[0], best_score_list)
 
 
     # 評価用個体の表示（交換の9を取り除いた純粋な遺伝子のみ）
-    # display_individual('第' + str(n) + '世代 最優秀個体', df_shift_evaluation_sort_list[0], best_score_list)
+    display_individual('第' + str(n) + '世代 最優秀個体', df_shift_evaluation_sort_list[0], best_score_list)
 
     i = 1
     for idx1, df1 in enumerate(df_shift_sort_list):
