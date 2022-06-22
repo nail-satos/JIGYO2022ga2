@@ -220,6 +220,17 @@ def uniform_crossover_individuals(df1: pd.DataFrame, df2: pd.DataFrame, mutation
         else:
             new_list.append(list2[idx])
 
+    rnd_per = random.randint(0, 100)
+    if rnd_per < mutation_rate:
+        # 突然変異を発生
+        rnd_idx = random.randint(0, len(new_list) - 1)
+        rnd_sts = random.randint(0,3)
+        print(f'{rnd_idx} →　{new_list[rnd_idx]}')
+        new_list[rnd_idx] = rnd_sts
+        print(f'{rnd_idx} →　{new_list[rnd_idx]}')
+        print(f'に突然変異しました')
+
+
     # 1次元リストを2次元リストに変換
     new_list_2d = [new_list[i:i + 24] for i in range(0, len(new_list), 24)]
 
@@ -341,7 +352,9 @@ def generate_next_generation(n: int, df_shift_list : list, loss_list: list, muta
     # 世代の最優秀スコアを記録する（戻り値用）
     best_score_list = df_score_sort.iloc[0, :].values.tolist()
     display_individual('第' + str(n) + '世代 最優秀個体', df_shift_next_list[0], best_score_list)
-    display_individual('第' + str(n) + '世代 最優秀個体', df_shift_evaluation_sort_list[0], best_score_list)
+
+    # 評価用個体の表示（交換の9を取り除いた純粋な遺伝子のみ）
+    # display_individual('第' + str(n) + '世代 最優秀個体', df_shift_evaluation_sort_list[0], best_score_list)
 
     i = 1
     for idx1, df1 in enumerate(df_shift_sort_list):

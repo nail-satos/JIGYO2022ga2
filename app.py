@@ -205,11 +205,11 @@ def main():
         co2_loss = st.sidebar.number_input('ＣＯ２排出量のペナルティ（重み）', value=50)
         change_loss = st.sidebar.number_input('交換作業のペナルティ（重み）', value=500)
 
-        max_individual = st.sidebar.slider('世代の個体数', value=25, min_value=25, max_value=250, step=1)
-        max_generation = st.sidebar.slider('生成する世代数(n)', value=1, min_value=1, max_value=100, step=1)
+        max_individual = st.sidebar.slider('世代の個体数', value=50, min_value=25, max_value=500, step=10)
+        max_generation = st.sidebar.slider('生成する世代数(n)', value=1, min_value=10, max_value=200, step=1)
+        mutation_rate = st.sidebar.slider('突然変異の頻度', value=1, min_value=0, max_value=100, step=1)
 
-        choice_crossover = st.sidebar.selectbox("交叉の種類", ['一点交叉', '一様交叉'])
-        mutation_rate = st.sidebar.number_input('突然変異の割合', value=1, min_value=1, max_value=100, step=1)
+        choice_crossover = st.sidebar.selectbox("交叉の種類", ['一様交叉', '一点交叉'])
 
         # choice_graph = st.sidebar.selectbox("評価値の遷移グラフ", ['表示しない','表示する'])
 
