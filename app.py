@@ -52,12 +52,9 @@ def main():
 
         # パラーメータの初期設定（CO2排出量）
         temp = []
-        # temp.append([10,10,10,10])   # マシンA（製造時、交換時、整備時、遊休時）
-        # temp.append([ 3, 3, 3, 3])   # マシンB（製造時、交換時、整備時、遊休時）
-        # temp.append([ 1, 1, 1, 1])   # マシンC（製造時、交換時、整備時、遊休時）
-        temp.append([10, 7, 5, 3])   # マシンA（製造時、交換時、整備時、遊休時）
-        temp.append([ 5, 4, 3, 2])   # マシンB（製造時、交換時、整備時、遊休時）
-        temp.append([ 3, 2, 1, 1])   # マシンC（製造時、交換時、整備時、遊休時）
+        temp.append([10, 7, 3])   # マシンA（製造時、交換時、遊休時）
+        temp.append([ 5, 4, 2])   # マシンB（製造時、交換時、遊休時）
+        temp.append([ 3, 2, 1])   # マシンC（製造時、交換時、遊休時）
         st.session_state.co2_params_list = temp
 
         # パラーメータの初期設定（製造能力:キャパシティ）
@@ -70,24 +67,18 @@ def main():
         # パラメータの初期設定（稼働率）
         st.session_state.operating_rate = 75
 
-        # # パラメータの初期設定（未生産分のペナルティ）
-        # st.session_state.incomplete_loss = 100
-
-        # # パラメータの初期設定（作りすぎのペナルティ）
-        # st.session_state.complete_loss = 20
-
-
     # stのタイトル表示
     st.title("遺伝的アルゴリズム\n（製造機器の稼働におけるCO2排出量の最適化問題)")
-
-    # ファイルのアップローダー
-    uploaded_file = st.sidebar.file_uploader("データのアップロード", type='csv') 
 
     # サイドメニューの設定
     activities = ["生産計画確認", "ＣＯ２排出量", "部品製造能力", "最適化の実行", "About"]
     choice = st.sidebar.selectbox("Select Activity", activities)
 
     if choice == '生産計画確認':
+
+        # ファイルのアップローダー
+        uploaded_file = st.sidebar.file_uploader("データのアップロード", type='csv') 
+
         # アップロードの有無を確認
         if uploaded_file is not None:
 
@@ -103,17 +94,22 @@ def main():
 
             finally:
                 # データフレームの読み込み（一番左端の列をインデックスに設定）
-                df = pd.read_csv(uploaded_file, encoding=enc, index_col=0) 
+                df_plan = pd.read_csv(uploaded_file, encoding=enc, index_col=0) 
 
                 # ary_cnt = ["10", "50", "100", ]
                 # cnt = st.sidebar.selectbox("Select Max mm", ary_cnt)
-                cnt = st.sidebar.slider('表示する件数', 1, len(df), 10)
+                # cnt = st.sidebar.slider('表示する件数', 1, len(df_plan), 10)
+                cnt = 10
 
                 # テーブルの表示
-                display_table('生産計画データ', df.head(int(cnt)))
+                display_table('生産計画データ', df_plan.head(int(cnt)))
 
                 # データフレームをセッションステートに退避
-                st.session_state.df_norma = copy.deepcopy(df)
+                st.session_state.df_plan = copy.deepcopy(df_plan)
+
+                # 時間ごとの生産計画（ノルマ）を、0時台からの累積台数に変換する関数
+                df_norma = transform_norma(df_plan)
+                display_table('生産計画（累積数）', df_norma)
         else:
             st.subheader('生産計画データをアップロードしてください')
 
@@ -125,7 +121,7 @@ def main():
         # セッションステートから値をコピー（セッションステートをそのまま使うと遅いため）
         params_list = copy.deepcopy(st.session_state.co2_params_list)   # DeepCopyしないとダメ
 
-        captions = ['製造時のCO2排出量(/h)', '交換時のCO2排出量(/h)', '整備時のCO2排出量(/h)', '遊休時のCO2排出量(/h)', ]
+        captions = ['製造時のCO2排出量(/h)', '交換時のCO2排出量(/h)', '遊休時のCO2排出量(/h)', ]
 
         with col1:
 
@@ -188,7 +184,7 @@ def main():
             for idx, caption in enumerate(captions):
                 params_list[2][idx] = st.number_input(caption, value=params_list[2][idx], key=params_list[0][idx] * 2)
 
-        op_rate = st.number_input('全体の稼働率(%)', value=op_rate)
+        op_rate = st.number_input('第0世代の稼働率(%)', value=op_rate)
 
         # 保存ボタンの作成（これは、この位置 = params_listの定義より後ろにないとNG）
         st.sidebar.text('パラメータの保存')
@@ -211,26 +207,31 @@ def main():
 
         choice_crossover = st.sidebar.selectbox("交叉の種類", ['一様交叉', '一点交叉'])
 
-        # # アップロードの有無を確認
-        # if uploaded_file is not None:
         # セッションステートにデータフレームがあるかを確認
-        if 'df_norma' in st.session_state or 'df_norma' not in st.session_state:
+        if 'df_plan' not in st.session_state:
 
             # 仮データフレームの読み込み（一番左端の列をインデックスに設定） ※デバック用
-            df_norma = pd.read_csv('生産計画.csv', encoding="utf_8_sig", index_col=0) 
+            df_plan = pd.read_csv('生産計画(仮).csv', encoding="utf_8_sig", index_col=0) 
 
             # データフレームをセッションステートに退避  ※デバック用
-            st.session_state.df_norma = copy.deepcopy(df_norma)
+            st.session_state.df_plan = copy.deepcopy(df_plan)
+        else:
+            # セッションステートに退避していたデータフレームを復元
+            df_plan = copy.deepcopy(st.session_state.df_plan)
 
 
         # テーブルの表示
-        display_table('生産計画（指示書）', df_norma)
+        display_table('生産計画（指示書）', df_plan)
 
         # 時間ごとの生産計画（ノルマ）を、0時台からの累積台数に変換する関数
-        df_norma = transform_norma(df_norma)
+        df_norma = transform_norma(df_plan)
 
         # テーブルの表示
         display_table('生産計画（累積数）', df_norma)
+
+        # データフレームをセッションステートに退避(generate_next_generationで呼び出す)
+        st.session_state.df_norma = copy.deepcopy(df_norma)
+        
 
         # 全世代の個体を格納するリストを初期化
         df_shift_list = []

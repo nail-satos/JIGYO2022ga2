@@ -168,10 +168,8 @@ def evaluation_individual(df_shift: pd.DataFrame, df_norma: pd.DataFrame, cap_pa
                 status_idx = 0  # 製造時
             if status == 9:
                 status_idx = 1  # 交換時
-            if status == -1:
-                status_idx = 2  # 整備時
             if status == 0:
-                status_idx = 3  # 遊休時
+                status_idx = 2  # 遊休時
 
             # CO2排出量を加算
             df_co2.iloc[machine_no, hour] = df_co2.iloc[machine_no, hour] + co2_params_list[machine_no][status_idx]
