@@ -220,13 +220,18 @@ def uniform_crossover_individuals(df1: pd.DataFrame, df2: pd.DataFrame, mutation
 
     rnd_per = random.randint(0, 100)
     if rnd_per < mutation_rate:
-        # 突然変異を発生
-        rnd_idx = random.randint(0, len(new_list) - 1)
-        rnd_sts = random.randint(0,3)
-        print(f'{rnd_idx} →　{new_list[rnd_idx]}')
-        new_list[rnd_idx] = rnd_sts
-        print(f'{rnd_idx} →　{new_list[rnd_idx]}')
-        print(f'に突然変異しました')
+
+        rnd_idx = 0
+        rnd_sts = 0
+        while rnd_idx == rnd_sts:
+            # 突然変異を発生
+            rnd_idx = random.randint(0, len(new_list) - 1)
+            rnd_sts = random.randint(0,3)
+
+            print(f'{rnd_idx} →　{new_list[rnd_idx]}')
+            new_list[rnd_idx] = rnd_sts
+            print(f'{rnd_idx} →　{new_list[rnd_idx]}')
+            print(f'に突然変異しました')
 
 
     # 1次元リストを2次元リストに変換
@@ -273,7 +278,7 @@ def single_crossover_individuals(df1: pd.DataFrame, df2: pd.DataFrame, mutation_
 def generate_next_generation(n: int, df_shift_list : list, loss_list: list, mutation_rate: int, choice_crossover: str):
 
     # 全個体のスコアを格納しておくデータフレームを生成
-    df_score = pd.DataFrame(columns=['生産不足', '生産過多', 'CO2排出量', '交換作業', '合計スコア'])
+    df_score = pd.DataFrame(columns=['生産不足(評価値)', '生産過多(評価値)', 'CO2排出量(評価値)', '交換作業(評価値)', '合計(評価値)', '生産不足(個数)', 'CO2排出量(24h)'])
     score_lists = []    # df_scoreに代入するための作業用のリスト
 
     # 評価用の個体を格納しておくリスト
@@ -301,11 +306,23 @@ def generate_next_generation(n: int, df_shift_list : list, loss_list: list, muta
         # 生産ノルマを守れているかの評価 ＆ ＣＯ２排出量を評価
         score_list = evaluation_individual(df_shift_evaluation, df_norma, cap_params_list, co2_params_list, loss_list)
 
-        incomplete_score = score_list[0]    # 生産不足のペナルティスコア
-        complete_score = score_list[1]      # 生産過多のペナルティスコア
-        co2_score = score_list[2]           # CO2排出量のペナルティスコア
-        change_score = score_list[3]        # 交換作業のペナルティスコア
-        total_score = score_list[4]         # 合計スコア
+        # incomplete_score = score_list[0]    # 生産不足のペナルティスコア
+        # complete_score = score_list[1]      # 生産過多のペナルティスコア
+        # co2_score = score_list[2]           # CO2排出量のペナルティスコア
+        # change_score = score_list[3]        # 交換作業のペナルティスコア
+        # total_score = score_list[4]         # 合計スコア
+
+        # # ペナルティをリストから復元
+        # incomplete_loss = loss_list[0]  # 生産不足のペナルティ
+        # complete_loss   = loss_list[1]  # 生産過多のペナルティ
+        # co2_loss        = loss_list[2]  # CO2排出量のペナルティ
+        # change_loss     = loss_list[3]  # 交換作業のペナルティ
+
+        # score_list[5] : 生産不足の個数を求める（ペナルティスコア ÷ ペナルティ）
+        score_list.append(round(score_list[0] / loss_list[0]) * -1)
+
+        # score_list[6] : CO2の排出量を求める（ペナルティスコア ÷ ペナルティ）
+        score_list.append(round(score_list[2] / loss_list[2]) * -1)
 
         # # 第n世代の表示
         # display_individual('第n世代(個体:' + str(idx) + '番) ※遺伝子', df_shift, score_list)
@@ -318,7 +335,7 @@ def generate_next_generation(n: int, df_shift_list : list, loss_list: list, muta
     df_score_sort = pd.DataFrame(score_lists, columns=df_score.columns)
 
     # 合計スコアの降順に並び替え
-    df_score_sort = df_score_sort.sort_values('合計スコア', ascending=False)
+    df_score_sort = df_score_sort.sort_values('合計(評価値)', ascending=False)
     display_table('第' + str(n) + '世代 スコア一覧表（ベスト10）', df_score_sort.head(10))
 
     # 全個体の遺伝子を（一時的に）格納しておくリスト

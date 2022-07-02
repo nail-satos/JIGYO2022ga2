@@ -20,6 +20,7 @@ from PIL import Image
 import random
 import copy
 import math
+import base64
 
 # 自作パッケージ
 from gafunc import display_table 
@@ -191,13 +192,13 @@ def main():
     if choice == '最適化の実行':
 
         # ペナルティの重み設定
-        incomplete_loss = st.sidebar.number_input('生産不足のペナルティ（重み）', value=200)
-        complete_loss = st.sidebar.number_input('生産過多のペナルティ（重み）', value=20)
-        co2_loss = st.sidebar.number_input('ＣＯ２排出量のペナルティ（重み）', value=50)
-        change_loss = st.sidebar.number_input('交換作業のペナルティ（重み）', value=500)
+        incomplete_loss = st.sidebar.number_input('生産不足のペナルティ（重み）', value=5)
+        complete_loss = st.sidebar.number_input('生産過多のペナルティ（重み）', value=1)
+        co2_loss = st.sidebar.number_input('ＣＯ２排出量のペナルティ（重み）', value=1)
+        change_loss = st.sidebar.number_input('交換作業のペナルティ（重み）', value=5)
 
-        max_individual = st.sidebar.slider('世代の個体数', value=50, min_value=100, max_value=500, step=10)
-        max_generation = st.sidebar.slider('生成する世代数(n)', value=1, min_value=10, max_value=200, step=1)
+        max_individual = st.sidebar.slider('世代の個体数', value=100, min_value=50, max_value=500, step=10)
+        max_generation = st.sidebar.slider('生成する世代数(n)', value=10, min_value=10, max_value=200, step=1)
         mutation_rate = st.sidebar.slider('突然変異の頻度', value=1, min_value=0, max_value=100, step=1)
 
         choice_crossover = st.sidebar.selectbox("交叉の種類", ['一様交叉', '一点交叉'])
@@ -268,11 +269,26 @@ def main():
 
             st.text('遊休=0, 製造(部品α)=1, 製造(部品β)=2, 製造(部品γ)=3, 交換作業=9')            
 
-            # 棒グラフを出力用のデータフレームを作成
-            df_best_score = pd.DataFrame(best_score_lists, columns=['生産不足', '生産過多', 'CO2排出量', '交換作業', '合計スコア'])
+            # グラフ用のデータフレームを作成
+            df_best_score = pd.DataFrame(best_score_lists, columns=['生産不足(評価値)', '生産過多(評価値)', 'CO2排出量(評価値)', '交換作業(評価値)', '合計(評価値)', '生産不足(個数)', 'CO2排出量(24h)'])
 
-            # スコアの線グラフを出力
-            st.line_chart(df_best_score)
+            # # スコアの線グラフを出力
+            # st.line_chart(df_best_score)
+
+            # 評価値のみのデータフレームを作成 -> 線グラフを出力
+            df_chart = df_best_score.drop(['生産不足(個数)', 'CO2排出量(24h)'], axis=1)
+            st.line_chart(df_chart)
+
+            # 生産不足とCO2排出量のみのデータフレームを作成 -> 線グラフを出力
+            df_chart = df_best_score.drop(['生産不足(評価値)', '生産過多(評価値)', 'CO2排出量(評価値)', '交換作業(評価値)', '合計(評価値)'], axis=1)
+            st.line_chart(df_chart)
+
+            # CSVファイルのダウンロードリンクを生成
+            df_best_score.index = np.arange(1, len(df_best_score)+1)    # インデックスを1から振り直し（初期値が0なので）
+            csv = df_best_score.to_csv(index=True) 
+            b64 = base64.b64encode(csv.encode('utf-8-sig')).decode()
+            href = f'<a href="data:application/octet-stream;base64,{b64}" download="result_ga.csv">Download Link</a>'
+            st.markdown(f"CSVファイルのダウンロード(utf-8 BOM):  {href}", unsafe_allow_html=True)
 
         st.sidebar.caption('Built by [Nail Team]')  # 下マージン用
                                 
@@ -286,7 +302,7 @@ def main():
         st.image(image)
 
         st.markdown("Built by [Nail Team]")
-        st.text("Version 1.0")
+        st.text("Version 1.2")
         st.markdown("For More Information check out   (https://nai-lab.com/)")
         
 
